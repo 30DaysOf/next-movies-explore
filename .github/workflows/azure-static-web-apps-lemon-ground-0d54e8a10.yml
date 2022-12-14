@@ -13,26 +13,11 @@ jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    environment: development
     name: Build and Deploy Job
     steps:
-
       - uses: actions/checkout@v2
         with:
           submodules: true
-
-      # Verify required env settings are defined
-      - name: Checks API KEY defined
-        run: |
-          if [ "$NEXT_PUBLIC_TMDB_API_KEY" == ""]; then
-            echo "TMDB API KEY NOT SET!" >> $GITHUB_OUTPUT
-          fi
-      - name: Checks ACCESS TOKEN defined
-        run: |
-          if [ "$NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN" == ""]; then
-            echo "TMDB ACCESS TOKEN NOT SET!" >> $GITHUB_OUTPUT
-          fi
-
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -46,14 +31,13 @@ jobs:
           api_location: "api" # Api source code path - optional
           output_location: "" # Built app content directory - optional
           ###### End of Repository/Build Configurations ######
-        env: # Add environment variables here
+        env: # Add environment variables here (set for )
           NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
           NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    environment: development
     name: Close Pull Request Job
     steps:
       - name: Close Pull Request
@@ -62,3 +46,6 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_GROUND_0D54E8A10 }}
           action: "close"
+        env: # Add environment variables here (set for )
+          NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
+          NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN }}
