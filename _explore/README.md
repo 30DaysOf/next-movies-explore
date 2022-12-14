@@ -13,7 +13,7 @@ Explore the repo with three goals in mind:
 
 ---
 
-## Day 01: 
+## Build / Deploy
 
 Walking through default README.md instructions to validate existing application on my local dev environment.
 
@@ -92,11 +92,11 @@ We'll use a hack [based on this GitHub issue discussion](https://github.com/npm/
 
 > Note that this solution is **NOT IDEAL**. The **right approach** would be to resolve the dependency conflicts by submitting issues to fix it upstream, or fork/fix-ing them in a local copy. Since this is just a demo project, I won't go that route yet.
 
-### 1.4 Fix the Backend
+### 1.4 Fix the TMDB Integration 
 
 After the last step, you should see the [build/deploy action succeed](https://github.com/30DaysOf/next-movies-explore/actions/runs/3695032225) and the [website url should be live](https://lemon-ground-0d54e8a10.2.azurestaticapps.net/) **but there's a new problem**.
 
-The site will now show a blank page (with a progress indicator) showing that it is waiting for something ... after a relevant timeout, you get a simple error message:
+The site will now show a blank page (with a progress indicator) showing that it is waiting for something ... after a relevant timeout, you get a simple error message as shown below (with a 500: Internal Server Error in the console)
 
 ```html
 Backend call failure
@@ -152,7 +152,7 @@ GitHub Actions has support for:
 
 We'll try the last option - effectively setting up a _deployment environment_ for a GitHub Actions workflow, to which we can add relevant environment variables _as secrets_ for secure storage and access.
 
-1. Visit the [Environments](https://github.com/30DaysOf/next-movies-explore/settings/environments) page of your project settings, create a new environment. _I called mine "Azure Static Web Apps" to provide context for where it would be used and saved it with defaults._
+1. Visit the [Environments](https://github.com/30DaysOf/next-movies-explore/settings/environments) page of your project settings, create a new environment. _I updated mine to "development" to provide context for its use as a development stage deployment target._ You can see [deployment history](https://github.com/30DaysOf/next-movies-explore/deployments) for each environment now.
 
 2. Visit the created environment, and look for the `Environment secrets` section. Click `Add secret` and add two secrets corresponding to the above 2 variables (and their values) and save. _This should result in an Environment as follows ._
 
@@ -162,8 +162,69 @@ We'll try the last option - effectively setting up a _deployment environment_ fo
 
 ```yml
     runs-on: ubuntu-latest
-    environment: Azure Static Web Apps
+    environment: development
     name: Build and Deploy Job
 ```
 
-Let's commit these changes and see if this helps resolve the previous server error.
+Let's commit these changes and see if this helps resolve the previous server error. 
+
+### 5. Troubleshooting Build/Deploy
+
+> UPDATE: We still get the 'Backend call failure' page (reflects a 500 Internal Server Error). 
+
+Let's take a look at [Troubleshooting deployment](https://learn.microsoft.com/en-us/azure/static-web-apps/troubleshooting) with SWA. It covers:
+ - Backend environment variables (using App Settings)
+ - Deployment errors (using GitHub Actions Logs)
+ - Server errors (using Application Insights)
+
+Note that environment variables required for [Build configuration](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration?tabs=github-actions#environment-variables) are handled differently. The Application Settings (SWA) are primarily for configuring environment available to the backend API.
+
+Since we set up the deployment environment previously, the runtime should have access to it. But looking at the build config, we also need to explicitly specify the _env_ variables accessible to the SWA deploy step. You can see the [GitHub Actions documentation](https://docs.github.com/en/actions/security-guides/encrypted-secrets#using-encrypted-secrets-in-a-workflow) for this as well.
+
+```yml
+env: # Add environment variables here
+    NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
+    NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN }}
+```
+
+We can also add some logs above this step, to verify that those variables were defined in the environment for that job.
+
+```yml
+# Verify required env settings are defined
+- name: Checks API KEY defined
+run: |
+    if [ "$NEXT_PUBLIC_TMDB_API_KEY" == ""]; then
+    echo "TMDB API KEY NOT SET!" >> $GITHUB_OUTPUT
+    fi
+- name: Checks ACCESS TOKEN defined
+run: |
+    if [ "$NEXT_PUBLIC_TMDB_API_READ_ACCESS_TOKEN" == ""]; then
+    echo "TMDB ACCESS TOKEN NOT SET!" >> $GITHUB_OUTPUT
+    fi
+```
+
+---
+
+## Troubleshooting on Azure
+
+You can use front-end framework tooling, testing and other solutions to debug and troubleshoot your _front-end_ components and code. But how can you troubleshoot issues on the backend (in Azure)?
+
+1. Visit the [Azure Portal](https://portal.azure.com). We can troublshoot in two ways.
+
+2. First, you can select any existing deployed resource and look for the _Troubleshooting_ option specific to that service, in its sidebar menu. Here is what that looks like when I select the Azure Static Web Apps resource I am using for my hosting/deployment needs.
+
+    ![Troubleshoot Azure Static Web Apps](./app-troubleshoot-swa.png)
+
+
+ 3. Second, you can activate [Application Insights](https://learn.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview?tabs=net) for your project, allowing the backend to gather data from both the system (cloud) and your application (custom) for deriving insights and metrics related to performance, failures and more. Simply click the _Application Insights_ option in the sidebar menu to configure it as shown. 
+
+    ![Configure Application Insights](./app-insights-configure.png)
+
+    Select yes to activate, then wait till the "Open in Application Insights" button is enabled. Click to get the Application Insights dashboard below. 
+
+    ![View App Insights Dashboard](./app-insights-dashboard.png)
+
+    You can view _default metrics_ for the past hour, day, week, month etc. as shown. But you can also use this for custom insights or deeper dives (via activity logs and more). And, since App Insights is itself a resource,  you can also click _Troubleshooting_ in this page's sidebar, to diagnose and solve problems related to usage.
+    ![Troubleshoot App Insights](./app-troubleshoot-insights.png)
+
+> Note: Each Azure service provides guidance on the types of metrics and insights you can obtain using Azure Monitor and related App Insights resources. [Here is the guidance for Azure Static Web Apps](https://learn.microsoft.com/en-us/azure/static-web-apps/monitor)
